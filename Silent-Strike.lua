@@ -33,7 +33,7 @@ local ColorPalette = {
 
 -- Create ScreenGui
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "SystemControlV8_Compact"
+screenGui.Name = "SystemControlV8.2_Compact"
 screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.DisplayOrder = 999
