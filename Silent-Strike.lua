@@ -13,289 +13,290 @@ local TweenService = game:GetService("TweenService")
 local localPlayer = Players.LocalPlayer
 local active = false
 local currentTransparency = 0.1
-local isDragging = false
 
--- Performance optimizations
-local lastRenderTime = 0
-local renderInterval = 0.1 -- Update every 0.1 seconds instead of every frame
-local lastStatUpdate = 0
-local statUpdateInterval = 2 -- Update stats every 2 seconds
+-- Wait for player to load
+while not localPlayer.Character do
+    task.wait(0.5)
+end
 
 --------------------------------------------------------------------------------
--- 1. LIGHTWEIGHT UI CREATION (No expensive effects)
+-- 1. CREATE SIMPLE WORKING UI
 --------------------------------------------------------------------------------
-
--- Simple colors
-local ColorPalette = {
-    Primary = Color3.fromRGB(0, 150, 255),
-    Danger = Color3.fromRGB(220, 60, 60),
-    Success = Color3.fromRGB(76, 175, 80),
-    Text = Color3.fromRGB(245, 245, 245),
-    Background = Color3.fromRGB(30, 30, 35, 0.95)
-}
 
 -- Create ScreenGui
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "SystemControl_Optimized"
+screenGui.Name = "SystemControl_Working"
 screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.DisplayOrder = 100
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
+print("ScreenGui created")
+
 -- ============================================
--- MINIMIZED BUTTON (Simple circle)
+-- MINIMIZED BUTTON (Always visible)
 -- ============================================
-local minimizedButton = Instance.new("TextButton") -- Use TextButton for better performance
+local minimizedButton = Instance.new("TextButton")
 minimizedButton.Name = "MinimizedButton"
-minimizedButton.Size = UDim2.new(0, 45, 0, 45)
-minimizedButton.Position = UDim2.new(0.95, -22.5, 0.05, 0)
-minimizedButton.BackgroundColor3 = ColorPalette.Primary
-minimizedButton.BackgroundTransparency = 0.1
+minimizedButton.Size = UDim2.new(0, 50, 0, 50)
+minimizedButton.Position = UDim2.new(0.95, -25, 0.05, 0)
+minimizedButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
 minimizedButton.Text = "⚙"
-minimizedButton.TextColor3 = ColorPalette.Text
+minimizedButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 minimizedButton.Font = Enum.Font.GothamBold
-minimizedButton.TextSize = 18
+minimizedButton.TextSize = 24
 minimizedButton.AutoButtonColor = false
 minimizedButton.Parent = screenGui
 
 -- Make it circular
-minimizedButton.ClipsDescendants = true
+local circleCorner = Instance.new("UICorner")
+circleCorner.CornerRadius = UDim.new(1, 0)
+circleCorner.Parent = minimizedButton
 
 -- Status dot
 local statusDot = Instance.new("Frame")
 statusDot.Name = "StatusDot"
-statusDot.Size = UDim2.new(0, 8, 0, 8)
-statusDot.Position = UDim2.new(1, -4, 0, -4)
-statusDot.BackgroundColor3 = ColorPalette.Danger
+statusDot.Size = UDim2.new(0, 10, 0, 10)
+statusDot.Position = UDim2.new(1, -5, 0, -5)
+statusDot.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
 statusDot.BorderSizePixel = 0
 statusDot.Parent = minimizedButton
 
+local dotCorner = Instance.new("UICorner")
+dotCorner.CornerRadius = UDim.new(1, 0)
+dotCorner.Parent = statusDot
+
+print("Minimized button created")
+
 -- ============================================
--- EXPANDED PANEL (Simple and efficient)
+-- EXPANDED PANEL (Hidden initially)
 -- ============================================
 local expandedPanel = Instance.new("Frame")
 expandedPanel.Name = "ExpandedPanel"
-expandedPanel.Size = UDim2.new(0, 280, 0, 340) -- Smaller size
-expandedPanel.Position = UDim2.new(0.7, 0, 0.05, 0)
-expandedPanel.BackgroundColor3 = ColorPalette.Background
+expandedPanel.Size = UDim2.new(0, 280, 0, 340)
+expandedPanel.Position = UDim2.new(0.5, -140, 0.5, -170)
+expandedPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 expandedPanel.BackgroundTransparency = 0.05
 expandedPanel.Visible = false
 expandedPanel.Parent = screenGui
 
--- Simple header
+-- Add a border so we can see it
+local panelBorder = Instance.new("UIStroke")
+panelBorder.Thickness = 2
+panelBorder.Color = Color3.fromRGB(0, 150, 255)
+panelBorder.Parent = expandedPanel
+
+-- Header
 local panelHeader = Instance.new("Frame")
-panelHeader.Size = UDim2.new(1, 0, 0, 35)
-panelHeader.BackgroundColor3 = ColorPalette.Primary
+panelHeader.Size = UDim2.new(1, 0, 0, 40)
+panelHeader.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
 panelHeader.Parent = expandedPanel
 
 local panelTitle = Instance.new("TextLabel")
-panelTitle.Size = UDim2.new(1, -40, 1, 0)
-panelTitle.Position = UDim2.new(0, 8, 0, 0)
+panelTitle.Size = UDim2.new(1, -50, 1, 0)
+panelTitle.Position = UDim2.new(0, 10, 0, 0)
 panelTitle.BackgroundTransparency = 1
-panelTitle.Text = "CONTROL PANEL"
-panelTitle.TextColor3 = ColorPalette.Text
+panelTitle.Text = "SYSTEM CONTROL"
+panelTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 panelTitle.Font = Enum.Font.GothamBold
-panelTitle.TextSize = 14
+panelTitle.TextSize = 16
 panelTitle.TextXAlignment = Enum.TextXAlignment.Left
 panelTitle.Parent = panelHeader
 
--- Simple close button
+-- Close button
 local closeButton = Instance.new("TextButton")
-closeButton.Size = UDim2.new(0, 25, 0, 25)
-closeButton.Position = UDim2.new(1, -30, 0.5, -12.5)
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -35, 0.5, -15)
 closeButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 closeButton.BackgroundTransparency = 0.8
-closeButton.Text = "×"
-closeButton.TextColor3 = ColorPalette.Text
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
 closeButton.Font = Enum.Font.GothamBold
-closeButton.TextSize = 16
+closeButton.TextSize = 14
 closeButton.AutoButtonColor = false
 closeButton.Parent = panelHeader
 
--- Content area (no scrolling to save performance)
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeButton
+
+-- Content area
 local contentFrame = Instance.new("Frame")
-contentFrame.Size = UDim2.new(1, 0, 1, -35)
-contentFrame.Position = UDim2.new(0, 0, 0, 35)
+contentFrame.Size = UDim2.new(1, 0, 1, -40)
+contentFrame.Position = UDim2.new(0, 0, 0, 40)
 contentFrame.BackgroundTransparency = 1
 contentFrame.Parent = expandedPanel
 
--- Simple layout
-local layout = Instance.new("UIListLayout")
-layout.Padding = UDim.new(0, 8)
-layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-layout.Parent = contentFrame
-
--- Function to create simple sections
-local function createSection(title, height)
+-- Create sections with clear borders so we can see them
+local function createSection(title, height, yPosition)
     local section = Instance.new("Frame")
-    section.Size = UDim2.new(0.92, 0, 0, height)
+    section.Size = UDim2.new(0.9, 0, 0, height)
+    section.Position = UDim2.new(0.05, 0, 0, yPosition)
     section.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
     section.Parent = contentFrame
     
+    -- Add border so we can see it
+    local sectionBorder = Instance.new("UIStroke")
+    sectionBorder.Thickness = 1
+    sectionBorder.Color = Color3.fromRGB(60, 60, 65)
+    sectionBorder.Parent = section
+    
     local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -12, 0, 20)
-    titleLabel.Position = UDim2.new(0, 6, 0, 4)
+    titleLabel.Size = UDim2.new(1, -10, 0, 25)
+    titleLabel.Position = UDim2.new(0, 5, 0, 5)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Text = title
-    titleLabel.TextColor3 = ColorPalette.Primary
+    titleLabel.TextColor3 = Color3.fromRGB(0, 150, 255)
     titleLabel.Font = Enum.Font.GothamSemibold
-    titleLabel.TextSize = 13
+    titleLabel.TextSize = 14
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
     titleLabel.Parent = section
     
     return section
 end
 
--- Status section
-local statusSection = createSection("STATUS", 90)
+-- Status section (at y = 10)
+local statusSection = createSection("SYSTEM STATUS", 90, 10)
+
 local statusText = Instance.new("TextLabel")
-statusText.Size = UDim2.new(1, -12, 0, 20)
-statusText.Position = UDim2.new(0, 6, 0, 28)
+statusText.Size = UDim2.new(1, -10, 0, 25)
+statusText.Position = UDim2.new(0, 5, 0, 30)
 statusText.BackgroundTransparency = 1
 statusText.Text = "INACTIVE"
-statusText.TextColor3 = ColorPalette.Danger
-statusText.Font = Enum.Font.GothamSemibold
-statusText.TextSize = 16
+statusText.TextColor3 = Color3.fromRGB(220, 60, 60)
+statusText.Font = Enum.Font.GothamBold
+statusText.TextSize = 18
 statusText.TextXAlignment = Enum.TextXAlignment.Left
 statusText.Parent = statusSection
 
 local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0.9, 0, 0, 32)
-toggleBtn.Position = UDim2.new(0.05, 0, 0, 52)
-toggleBtn.BackgroundColor3 = ColorPalette.Danger
-toggleBtn.Text = "ACTIVATE"
-toggleBtn.TextColor3 = ColorPalette.Text
+toggleBtn.Name = "ToggleButton"
+toggleBtn.Size = UDim2.new(0.9, 0, 0, 35)
+toggleBtn.Position = UDim2.new(0.05, 0, 0, 55)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+toggleBtn.Text = "ACTIVATE SYSTEM"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.Font = Enum.Font.GothamSemibold
-toggleBtn.TextSize = 13
+toggleBtn.TextSize = 14
 toggleBtn.AutoButtonColor = false
 toggleBtn.Parent = statusSection
 
--- Opacity section
-local opacitySection = createSection("OPACITY", 80)
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0, 6)
+toggleCorner.Parent = toggleBtn
+
+-- Opacity section (at y = 110)
+local opacitySection = createSection("BRICK OPACITY", 80, 110)
+
 local opacityLabel = Instance.new("TextLabel")
-opacityLabel.Size = UDim2.new(1, -12, 0, 20)
-opacityLabel.Position = UDim2.new(0, 6, 0, 28)
+opacityLabel.Size = UDim2.new(1, -10, 0, 20)
+opacityLabel.Position = UDim2.new(0, 5, 0, 30)
 opacityLabel.BackgroundTransparency = 1
-opacityLabel.Text = "Value: 0.1"
-opacityLabel.TextColor3 = ColorPalette.Text
+opacityLabel.Text = "Current: 0.1"
+opacityLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 opacityLabel.Font = Enum.Font.Gotham
-opacityLabel.TextSize = 12
+opacityLabel.TextSize = 13
 opacityLabel.TextXAlignment = Enum.TextXAlignment.Left
 opacityLabel.Parent = opacitySection
 
+-- Opacity controls
 local opacityControls = Instance.new("Frame")
-opacityControls.Size = UDim2.new(1, -12, 0, 28)
-opacityControls.Position = UDim2.new(0, 6, 0, 48)
+opacityControls.Size = UDim2.new(1, -10, 0, 30)
+opacityControls.Position = UDim2.new(0, 5, 0, 50)
 opacityControls.BackgroundTransparency = 1
 opacityControls.Parent = opacitySection
 
 local decreaseBtn = Instance.new("TextButton")
-decreaseBtn.Size = UDim2.new(0, 36, 1, 0)
+decreaseBtn.Name = "DecreaseOpacity"
+decreaseBtn.Size = UDim2.new(0, 35, 1, 0)
 decreaseBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
 decreaseBtn.Text = "-"
-decreaseBtn.TextColor3 = ColorPalette.Text
+decreaseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 decreaseBtn.Font = Enum.Font.GothamBold
 decreaseBtn.TextSize = 18
 decreaseBtn.AutoButtonColor = false
 decreaseBtn.Parent = opacityControls
 
 local opacityValue = Instance.new("TextLabel")
-opacityValue.Size = UDim2.new(1, -72, 1, 0)
-opacityValue.Position = UDim2.new(0, 36, 0, 0)
+opacityValue.Name = "OpacityValue"
+opacityValue.Size = UDim2.new(1, -70, 1, 0)
+opacityValue.Position = UDim2.new(0, 35, 0, 0)
 opacityValue.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 opacityValue.Text = "0.1"
-opacityValue.TextColor3 = ColorPalette.Text
+opacityValue.TextColor3 = Color3.fromRGB(255, 255, 255)
 opacityValue.Font = Enum.Font.GothamSemibold
-opacityValue.TextSize = 14
+opacityValue.TextSize = 16
 opacityValue.Parent = opacityControls
 
 local increaseBtn = Instance.new("TextButton")
-increaseBtn.Size = UDim2.new(0, 36, 1, 0)
-increaseBtn.Position = UDim2.new(1, -36, 0, 0)
+increaseBtn.Name = "IncreaseOpacity"
+increaseBtn.Size = UDim2.new(0, 35, 1, 0)
+increaseBtn.Position = UDim2.new(1, -35, 0, 0)
 increaseBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
 increaseBtn.Text = "+"
-increaseBtn.TextColor3 = ColorPalette.Text
+increaseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 increaseBtn.Font = Enum.Font.GothamBold
 increaseBtn.TextSize = 18
 increaseBtn.AutoButtonColor = false
 increaseBtn.Parent = opacityControls
 
--- Info section
-local infoSection = createSection("INFO", 70)
-local infoText = Instance.new("TextLabel")
-infoText.Size = UDim2.new(1, -12, 1, -10)
-infoText.Position = UDim2.new(0, 6, 0, 24)
-infoText.BackgroundTransparency = 1
-infoText.Text = "Click gear to open\nClose with × button"
-infoText.TextColor3 = Color3.fromRGB(180, 180, 180)
-infoText.Font = Enum.Font.Gotham
-infoText.TextSize = 11
-infoText.TextXAlignment = Enum.TextXAlignment.Left
-infoText.TextYAlignment = Enum.TextYAlignment.Top
-infoText.Parent = infoSection
+-- Stats section (at y = 200)
+local statsSection = createSection("STATISTICS", 60, 200)
 
--- Stats section
-local statsSection = createSection("STATS", 50)
 local statsLabel = Instance.new("TextLabel")
-statsLabel.Size = UDim2.new(1, -12, 1, -10)
-statsLabel.Position = UDim2.new(0, 6, 0, 24)
+statsLabel.Name = "StatsLabel"
+statsLabel.Size = UDim2.new(1, -10, 1, -10)
+statsLabel.Position = UDim2.new(0, 5, 0, 5)
 statsLabel.BackgroundTransparency = 1
 statsLabel.Text = "Parts: 0 | Bricks: 0"
-statsLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+statsLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 statsLabel.Font = Enum.Font.GothamMedium
-statsLabel.TextSize = 12
+statsLabel.TextSize = 13
 statsLabel.TextXAlignment = Enum.TextXAlignment.Left
-statsLabel.Name = "StatsLabel"
 statsLabel.Parent = statsSection
 
+-- Info section (at y = 270)
+local infoSection = createSection("INFORMATION", 50, 270)
+
+local infoLabel = Instance.new("TextLabel")
+infoLabel.Size = UDim2.new(1, -10, 1, -10)
+infoLabel.Position = UDim2.new(0, 5, 0, 5)
+infoLabel.BackgroundTransparency = 1
+infoLabel.Text = "Click gear to open/close"
+infoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+infoLabel.Font = Enum.Font.Gotham
+infoLabel.TextSize = 12
+infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+infoLabel.Parent = infoSection
+
+print("All UI elements created")
+
 --------------------------------------------------------------------------------
--- 2. OPTIMIZED UI INTERACTIONS (No expensive tweens)
+-- 2. SIMPLE UI INTERACTIONS (DEBUGGED)
 --------------------------------------------------------------------------------
 
--- Simple toggle with minimal animations
+-- Debug print
+print("Setting up button events...")
+
+-- Click gear to open panel
 minimizedButton.MouseButton1Click:Connect(function()
-    if not isDragging then
-        minimizedButton.Visible = false
-        expandedPanel.Visible = true
-        expandedPanel.Position = UDim2.new(
-            minimizedButton.Position.X.Scale - 0.1,
-            minimizedButton.Position.X.Offset,
-            minimizedButton.Position.Y.Scale,
-            minimizedButton.Position.Y.Offset
-        )
-    end
+    print("Gear button clicked!")
+    minimizedButton.Visible = false
+    expandedPanel.Visible = true
+    expandedPanel.Position = UDim2.new(0.5, -140, 0.5, -170) -- Center on screen
+    print("Panel should be visible now")
 end)
 
+-- Click X to close panel
 closeButton.MouseButton1Click:Connect(function()
+    print("Close button clicked!")
     expandedPanel.Visible = false
     minimizedButton.Visible = true
+    print("Panel hidden, gear visible")
 end)
 
--- Simple dragging for circle
-local dragStart, startPos
-minimizedButton.MouseButton1Down:Connect(function()
-    isDragging = true
-    dragStart = UserInputService:GetMouseLocation()
-    startPos = minimizedButton.Position
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        isDragging = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local currentMouse = UserInputService:GetMouseLocation()
-        local delta = currentMouse - dragStart
-        minimizedButton.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + delta.X,
-            startPos.Y.Scale, startPos.Y.Offset + delta.Y
-        )
-    end
-end)
-
--- Simple dragging for panel
+-- Make panel draggable
 panelHeader.MouseButton1Down:Connect(function()
     local dragStart = UserInputService:GetMouseLocation()
     local startPos = expandedPanel.Position
@@ -319,45 +320,34 @@ panelHeader.MouseButton1Down:Connect(function()
     end)
 end)
 
---------------------------------------------------------------------------------
--- 3. OPTIMIZED CORE LOGIC (FIXED LAG ISSUES)
---------------------------------------------------------------------------------
+print("Button events setup complete")
 
--- Cache for performance
-local topBrickCache = {}
-local targetPartsCache = {}
+--------------------------------------------------------------------------------
+-- 3. CORE SYSTEM FUNCTIONS
+--------------------------------------------------------------------------------
 
 local function updateStats()
-    local currentTime = tick()
-    if currentTime - lastStatUpdate < statUpdateInterval then
-        return
-    end
-    lastStatUpdate = currentTime
-    
-    -- Use cached values when possible
+    local partsDetected = 0
     local topBricksCount = #CollectionService:GetTagged(CREATED_BRICK_TAG)
     
-    -- Only count parts if cache is empty or system is active
-    local partsDetected = #targetPartsCache
-    if partsDetected == 0 or active then
-        partsDetected = 0
-        targetPartsCache = {} -- Clear cache
-        
-        -- Only scan workspace when needed
-        for _, obj in ipairs(game.Workspace:GetChildren()) do
-            if obj:IsA("BasePart") and obj.Name == TARGET_PART_NAME then
-                partsDetected = partsDetected + 1
-                table.insert(targetPartsCache, obj)
-            end
+    -- Count target parts
+    for _, obj in ipairs(game.Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name == TARGET_PART_NAME then
+            partsDetected = partsDetected + 1
         end
     end
     
     statsLabel.Text = string.format("Parts: %d | Bricks: %d", partsDetected, topBricksCount)
+    print("Stats updated:", partsDetected, "parts,", topBricksCount, "bricks")
 end
 
--- Optimized function to spawn top bricks
 local function spawnTopBrick(target)
-    if CollectionService:HasTag(target, TAG_NAME) then return end
+    if CollectionService:HasTag(target, TAG_NAME) then
+        print("Part already has top brick:", target.Name)
+        return 
+    end
+    
+    print("Spawning top brick for:", target.Name)
     
     local topBrick = Instance.new("Part")
     topBrick.Name = "TopBrick"
@@ -368,7 +358,7 @@ local function spawnTopBrick(target)
     topBrick.Material = Enum.Material.Neon
     topBrick.Transparency = currentTransparency
     
-    -- Simple placement (no complex calculations)
+    -- Simple placement
     local offset = target.Position + Vector3.new(0, target.Size.Y/2 + TOP_HEIGHT/2, 0)
     topBrick.Position = offset
     topBrick.CFrame = CFrame.new(offset) * target.CFrame.Rotation
@@ -378,23 +368,27 @@ local function spawnTopBrick(target)
     CollectionService:AddTag(target, TAG_NAME)
     CollectionService:AddTag(topBrick, CREATED_BRICK_TAG)
     
-    -- Cache the brick
-    table.insert(topBrickCache, topBrick)
+    print("Top brick created at position:", offset)
 end
 
--- Optimized opacity update
 local function updateOpacity(value)
     currentTransparency = math.clamp(value, 0, 1)
     local displayValue = math.floor(currentTransparency * 10 + 0.5) / 10
     
-    opacityLabel.Text = "Value: " .. displayValue
+    opacityLabel.Text = "Current: " .. displayValue
     opacityValue.Text = tostring(displayValue)
     
-    -- Update status dot
-    statusDot.BackgroundColor3 = currentTransparency > 0.5 and Color3.fromRGB(255, 193, 7) or ColorPalette.Success
+    -- Update status dot color
+    if currentTransparency > 0.5 then
+        statusDot.BackgroundColor3 = Color3.fromRGB(255, 193, 7) -- Yellow
+    else
+        statusDot.BackgroundColor3 = Color3.fromRGB(76, 175, 80) -- Green
+    end
     
-    -- Batch update bricks (more efficient)
+    -- Update all bricks
     local bricks = CollectionService:GetTagged(CREATED_BRICK_TAG)
+    print("Updating opacity for", #bricks, "bricks to", displayValue)
+    
     for i = 1, #bricks do
         bricks[i].Transparency = currentTransparency
     end
@@ -402,40 +396,46 @@ end
 
 -- Opacity controls
 decreaseBtn.MouseButton1Click:Connect(function()
+    print("Decrease opacity clicked")
     updateOpacity(currentTransparency - 0.1)
 end)
 
 increaseBtn.MouseButton1Click:Connect(function()
+    print("Increase opacity clicked")
     updateOpacity(currentTransparency + 0.1)
 end)
 
--- Main toggle (optimized)
+-- Main toggle button
 toggleBtn.MouseButton1Click:Connect(function()
+    print("Toggle button clicked. Current state:", active)
     active = not active
     
     if active then
         -- Update UI
+        print("Activating system...")
         statusText.Text = "ACTIVE"
-        statusText.TextColor3 = ColorPalette.Success
-        toggleBtn.Text = "DEACTIVATE"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 193, 7) -- Warning color
-        statusDot.BackgroundColor3 = ColorPalette.Success
+        statusText.TextColor3 = Color3.fromRGB(76, 175, 80)
+        toggleBtn.Text = "DEACTIVATE SYSTEM"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
+        statusDot.BackgroundColor3 = Color3.fromRGB(76, 175, 80)
         
-        -- Activate system with delay to prevent lag
+        -- Activate system
         task.spawn(function()
             local parts = {}
             
-            -- First pass: collect all target parts
-            for _, obj in ipairs(game.Workspace:GetChildren()) do
+            -- Find all target parts
+            for _, obj in ipairs(game.Workspace:GetDescendants()) do
                 if obj:IsA("BasePart") and obj.Name == TARGET_PART_NAME then
                     table.insert(parts, obj)
                 end
             end
             
-            -- Second pass: spawn bricks with delay
+            print("Found", #parts, "target parts")
+            
+            -- Create top bricks
             for i, part in ipairs(parts) do
                 spawnTopBrick(part)
-                if i % 10 == 0 then -- Process 10 parts, then wait
+                if i % 5 == 0 then -- Small delay every 5 parts
                     task.wait()
                 end
             end
@@ -444,98 +444,76 @@ toggleBtn.MouseButton1Click:Connect(function()
         end)
     else
         -- Update UI
+        print("Deactivating system...")
         statusText.Text = "INACTIVE"
-        statusText.TextColor3 = ColorPalette.Danger
-        toggleBtn.Text = "ACTIVATE"
-        toggleBtn.BackgroundColor3 = ColorPalette.Danger
-        statusDot.BackgroundColor3 = ColorPalette.Danger
+        statusText.TextColor3 = Color3.fromRGB(220, 60, 60)
+        toggleBtn.Text = "ACTIVATE SYSTEM"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+        statusDot.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
         
-        -- Batch destroy bricks (more efficient)
+        -- Remove all top bricks
         local bricks = CollectionService:GetTagged(CREATED_BRICK_TAG)
+        print("Removing", #bricks, "top bricks")
+        
         for i = 1, #bricks do
             bricks[i]:Destroy()
         end
         
-        -- Clear tags
+        -- Remove tags
         local tagged = CollectionService:GetTagged(TAG_NAME)
         for i = 1, #tagged do
             CollectionService:RemoveTag(tagged[i], TAG_NAME)
         end
         
-        -- Clear caches
-        topBrickCache = {}
         updateStats()
     end
 end)
 
--- Optimized auto-detection (less frequent checks)
-local lastScanTime = 0
-local scanInterval = 1 -- Scan every 1 second
-
-game.Workspace.ChildAdded:Connect(function(child)
-    if active and child:IsA("BasePart") and child.Name == TARGET_PART_NAME then
-        spawnTopBrick(child)
+-- Auto-detection for new parts
+game.Workspace.DescendantAdded:Connect(function(descendant)
+    if active and descendant:IsA("BasePart") and descendant.Name == TARGET_PART_NAME then
+        print("New part detected:", descendant.Name)
+        spawnTopBrick(descendant)
         updateStats()
     end
 end)
 
--- Optimized player visibility system (FIXED LAG)
-local lastVisibilityUpdate = 0
-local visibilityUpdateInterval = 0.3 -- Update every 0.3 seconds instead of every frame
+-- Update stats periodically
+task.spawn(function()
+    while true do
+        updateStats()
+        task.wait(3) -- Update every 3 seconds
+    end
+end)
 
-RunService.Heartbeat:Connect(function() -- Use Heartbeat instead of RenderStepped
-    local currentTime = tick()
-    
-    -- Update visibility less frequently
-    if active and currentTime - lastVisibilityUpdate > visibilityUpdateInterval then
-        lastVisibilityUpdate = currentTime
-        
-        -- Only process local player for performance
-        local character = localPlayer.Character
-        if character then
-            -- Only make specific parts visible, not everything
-            local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-            if humanoidRootPart then
-                humanoidRootPart.Transparency = 0
-                
-                -- Only process a few key parts
-                local partsToCheck = {
-                    character:FindFirstChild("Head"),
-                    character:FindFirstChild("UpperTorso"),
-                    character:FindFirstChild("LowerTorso")
-                }
-                
-                for _, part in ipairs(partsToCheck) do
-                    if part and part.Transparency > 0 then
-                        part.Transparency = 0
-                    end
-                end
+-- Player visibility (simple version)
+RunService.Heartbeat:Connect(function()
+    if active and localPlayer.Character then
+        local humanoidRootPart = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if humanoidRootPart then
+            humanoidRootPart.Transparency = 0
+            
+            -- Make sure player is visible
+            local head = localPlayer.Character:FindFirstChild("Head")
+            if head then
+                head.Transparency = 0
             end
         end
     end
-    
-    -- Update stats less frequently
-    if currentTime - lastStatUpdate > statUpdateInterval then
-        updateStats()
-    end
 end)
 
--- Initialize
-updateStats()
+-- Initial setup
+print("System Control initialized!")
+print("Look for the blue gear icon in the top-right corner")
+print("Click it to open the control panel")
 
--- Simple startup
+-- Make sure gear is visible
+minimizedButton.Visible = true
+
+-- Test print to confirm script is running
 task.spawn(function()
     task.wait(1)
-    -- Just make button visible, no fancy animations
-    minimizedButton.BackgroundTransparency = 0.1
-end)
-
--- Cleanup on script end
-game:GetService("UserInputService").WindowFocused:Connect(function()
-    if not screenGui:IsDescendantOf(game) then
-        -- Clean up if script is destroyed
-        for _, brick in ipairs(CollectionService:GetTagged(CREATED_BRICK_TAG)) do
-            brick:Destroy()
-        end
-    end
+    print("=== SYSTEM CONTROL V8 READY ===")
+    print("Click the blue gear icon (⚙) to open controls")
+    print("Target part name:", TARGET_PART_NAME)
 end)
